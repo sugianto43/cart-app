@@ -12,6 +12,7 @@ import {
   TextField
 } from '@material-ui/core';
 import AddIcon from '@material-ui/icons/Add';
+import RemoveCircleIcon from '@material-ui/icons/RemoveCircle';
 
 
 const useStyles = makeStyles((theme) => ({
@@ -56,14 +57,21 @@ function App() {
   const [names, setNames] = useState([]);
   const [name, setName] = useState('');
   const [dc, setDc] = useState('');
+  const [date, setDate] = useState(null)
   const [hasData, setHasData] = useState(false)
   const [payment, setPayment] = useState('')
-  const [product, setProduct] = useState('')
-  const [unitList, setUnitList] = useState([])
-  const [unit, setUnit] = useState('')
-  const [price, setPrice] = useState(0)
-  const [quantity, setQuantity] = useState(0)
-  const [totalPrice, setTotalPrice] = useState(0)
+  const [total, setTotal] = useState('')
+  const [disabledBtn, setDisabledBtn] = useState(true)
+  const [productsFields, setProductsFields] = useState([
+    {
+      product: '',
+      units: '',
+      unitList: [],
+      quantity: '',
+      price: '',
+      totalPrice: 0
+    },
+  ])
   const fetchData = () => {
     axios.get('http://dummy.restapiexample.com/api/v1/employees').then(res => {
       let data = res.data.data.map(item => item.employee_name)
@@ -136,22 +144,57 @@ function App() {
     setPayment(event.target.value);
   };
 
-  const handleChangeProduct = (event) => {
-    let units = products.find(item => item.product_name === event.target.value).units
-    setProduct(event.target.value);
-    setUnitList(units)
+  const handleChangeProduct = (idx, event) => {
+    let values = [...productsFields]
+    if (event.target.name === 'product') {
+      let units = products.find(item => item.product_name === event.target.value).units
+      values[idx].unitList = units
+      setProductsFields(values)
+    }
+
+    if (event.target.name === 'units') {
+      let price = values[idx].unitList.find(item => item.name === event.target.value).price
+      values[idx].price = price
+      setProductsFields(values)
+    }
+
+    if (event.target.name === 'quantity') {
+      values[idx].totalPrice = event.target.value * values[idx].price
+      setProductsFields(values)
+    }
+
+    values[idx][event.target.name] = event.target.value
+    setProductsFields(values)
   }
 
-  const handleChangeUnit = (event) => {
-    let price = unitList.find(item => item.name === event.target.value).price
-    setUnit(event.target.value);
-    setPrice(price)
+
+  const handleAddFields = () => {
+    setProductsFields([...productsFields, {
+      product: '',
+      units: '',
+      quantity: '',
+      price: '',
+      totalPrice: ''
+    }])
   }
 
-  const handleChangeQuantity = (event) => {
-    setQuantity(event.target.value);
-    setTotalPrice(price * Number(event.target.value))
+  const removeFields = (idx) => {
+    const values = [...productsFields];
+    values.splice(idx, 1);
+    setProductsFields(values)
   }
+
+  useEffect(() => {
+    productsFields.map(item => {
+      if (item.product && item.units && item.quantity && item.price) {
+        setDisabledBtn(false)
+      } else {
+        setDisabledBtn(true)
+      }
+    })
+    setTotal(productsFields.reduce((x, y) => x + y.totalPrice, 0))
+  }, [productsFields])
+
 
   return (
     <div style={{ background: '#EAEAEA' }}>
@@ -176,10 +219,11 @@ function App() {
                     <MenuItem key={idx} value={item}>{item}</MenuItem>
                   ))}
                 </Select>
+                <p style={{ fontSize: 12, margin: "5px 0 0 0" }}>if the data did not show, refresh the page</p>
               </Box>
 
               {hasData && <Box>
-                <p>Distribution Center <span>*</span></p>
+                <p >Distribution Center <span>*</span></p>
                 <Select
                   variant='outlined'
                   style={{
@@ -230,6 +274,8 @@ function App() {
                     <Box>
                       <p>Expired Date <span>*</span></p>
                       <TextField
+                        value={date}
+                        onChange={(e) => setDate(e.target.value)}
                         variant='outlined'
                         type={'date'}
                         style={{
@@ -261,113 +307,129 @@ function App() {
               <Box className={classes.contentLeft}>
                 <p className='text'>Product</p>
               </Box>
+
+              {/* ======      DYNAMIC FIELDS       ===== */}
               <Box className={classes.contentRight}>
-                <Box style={{ display: 'flex' }}>
-                  <Box>
-                    <p>Product <span>*</span></p>
-                    <Select
-                      variant='outlined'
-                      style={{
-                        width: 600,
-                        marginRight: 10
-                      }}
-                      placeholder='Distribution Center'
-                      value={product}
-                      onChange={handleChangeProduct}
-                    >
-                      {products.map((item, idx) => (<MenuItem value={item.product_name}>{item.product_name}</MenuItem>))}
+                {productsFields.map((item, idx) => (
+                  <Box key={idx}>
+                    <Box style={{ display: 'flex' }}>
+                      <Box style={{ position: 'relative' }}>
+                        {idx !== 0 && <Box style={{ position: 'absolute', left: '-25px', top: '55px', cursor: 'pointer', color: '#EE4B2B' }} onClick={() => removeFields(idx)}><RemoveCircleIcon color="inherit" /></Box>}
+                        <p>Product <span>*</span></p>
+                        <Select
+                          name='product'
+                          variant='outlined'
+                          style={{
+                            width: 600,
+                            marginRight: 10
+                          }}
+                          placeholder='Distribution Center'
+                          value={item.product}
+                          onChange={(event) => handleChangeProduct(idx, event)}
+                        >
+                          {products.map((item, idx) => (<MenuItem value={item.product_name}>{item.product_name}</MenuItem>))}
 
-                    </Select>
-                  </Box>
+                        </Select>
+                      </Box>
 
-                  {product ? (<Box>
-                    <p>Unit <span>*</span></p>
-                    <Select
-                      variant='outlined'
-                      style={{
-                        width: 200,
-                        marginRight: 10
-                      }}
-                      placeholder='Distribution Center'
-                      value={unit}
-                      onChange={handleChangeUnit}
-                    >
-                      {unitList.map((item) => (<MenuItem value={item.name}>{item.name}</MenuItem>))}
+                      {item.product ? (<Box>
+                        <p>Unit <span>*</span></p>
+                        <Select
+                          name='units'
+                          variant='outlined'
+                          style={{
+                            width: 200,
+                            marginRight: 10
+                          }}
+                          placeholder='Distribution Center'
+                          value={item.units}
+                          onChange={(event) => handleChangeProduct(idx, event)}
+                        >
+                          {item.unitList.map((item) => (<MenuItem value={item.name}>{item.name}</MenuItem>))}
 
-                    </Select>
-                  </Box>) : (
+                        </Select>
+                      </Box>) : (
+                        <Box>
+                          <p>Unit <span>*</span></p>
+                          <Select
+                            variant='outlined'
+                            style={{
+                              width: 200,
+                              marginRight: 10
+                            }}
+                            placeholder='Distribution Center'
+                          >
+                            <MenuItem >No data available</MenuItem>
+
+                          </Select>
+                        </Box>
+                      )}
+                    </Box>
+
                     <Box>
-                      <p>Unit <span>*</span></p>
-                      <Select
-                        variant='outlined'
-                        style={{
-                          width: 200,
-                          marginRight: 10
-                        }}
-                        placeholder='Distribution Center'
-
-                      >
-                        <MenuItem >No data available</MenuItem>
-
-                      </Select>
-                    </Box>
-                  )}
-                </Box>
-
-                <Box>
-                  <Box style={{ display: 'flex', width: '100%', maxWidth: 810 }}>
-                    <Box style={{}}>
-                      <p>Quantity <span>*</span></p>
-                      <TextField
-                        variant='outlined'
-                        fullWidth
-                        type={'number'}
-                        value={quantity}
-                        onChange={handleChangeQuantity}
-                        style={{
-                          width: 200,
-                          marginRight: 10
-                        }}
-                      />
-                    </Box>
-                    <Box style={{}}>
-                      <p>Price <span>*</span></p>
-                      <TextField
-                        variant='outlined'
-                        fullWidth
-                        value={price}
-                        disabled
-                        style={{
-                          width: 200,
-                          marginRight: 10
-                        }}
-                      />
-                    </Box>
-                    <Box style={{ width: '100%' }}>
-                      <p>Total Price <span>*</span></p>
-                      <TextField
-                        variant='outlined'
-                        fullWidth
-                        disabled
-                        value={totalPrice}
-                        style={{ background: '#EAEAEA' }}
-                      />
-                    </Box>
-                  </Box>
-                  <Box style={{ width: '100%', maxWidth: 810 }}>
-                    <Box style={{ width: 390, marginLeft: 'auto' }}>
-                      <Divider style={{ marginTop: 20, }} />
-                      <Box style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <h5 style={{ margin: '10px 0' }}>Total Nett Price</h5>
-                        <h5 style={{ margin: '10px 0' }}>0</h5>
+                      <Box style={{ display: 'flex', width: '100%', maxWidth: 810 }}>
+                        <Box style={{}}>
+                          <p>Quantity <span>*</span></p>
+                          <TextField
+                            name='quantity'
+                            variant='outlined'
+                            fullWidth
+                            type={'number'}
+                            value={item.quantity}
+                            onChange={(event) => handleChangeProduct(idx, event)}
+                            style={{
+                              width: 200,
+                              marginRight: 10
+                            }}
+                          />
+                        </Box>
+                        <Box style={{}}>
+                          <p>Price <span>*</span></p>
+                          <TextField
+                            name='price'
+                            variant='outlined'
+                            fullWidth
+                            value={item.price}
+                            disabled
+                            style={{
+                              width: 200,
+                              marginRight: 10
+                            }}
+                          />
+                        </Box>
+                        <Box style={{ width: '100%' }}>
+                          <p>Total Price <span>*</span></p>
+                          <TextField
+                            name='totalPrice'
+                            variant='outlined'
+                            fullWidth
+                            disabled
+                            value={item.totalPrice}
+                            style={{ background: '#EAEAEA' }}
+                          />
+                        </Box>
+                      </Box>
+                      <Box style={{ width: '100%', maxWidth: 810 }}>
+                        <Box style={{ width: 390, marginLeft: 'auto' }}>
+                          <Divider style={{ marginTop: 20, }} />
+                          <Box style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <h5 style={{ margin: '10px 0' }}>Total Nett Price</h5>
+                            <h5 style={{ margin: '10px 0' }}>{item.totalPrice}</h5>
+                          </Box>
+                        </Box>
                       </Box>
                     </Box>
-                  </Box>
-                </Box>
+                  </Box>))}
 
 
                 <Box>
-                  <Button variant='outlined' color='primary' endIcon={<AddIcon />}>new item</Button>
+
+                  <Button variant='outlined' color='primary' endIcon={<AddIcon />} onClick={handleAddFields}>new item</Button>
+                </Box>
+
+                <Box style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: 385, margin: '10px 35px -10px auto' }}>
+                  <h5>Total</h5>
+                  <h5>{total}</h5>
                 </Box>
               </Box>
             </Box>
@@ -376,7 +438,7 @@ function App() {
           <Divider style={{ marginTop: 20 }} />
           <Box style={{ marginLeft: 'auto', width: 'fit-content', marginTop: 20 }}>
             <Button variant='text' style={{ marginRight: 15 }}>cancel</Button>
-            <Button disabled={true} variant='contained' color='primary'>confirm</Button>
+            <Button disabled={!name || !dc || !payment || !date || disabledBtn} variant='contained' color='primary'>confirm</Button>
           </Box>
         </Card>
       </Container>
